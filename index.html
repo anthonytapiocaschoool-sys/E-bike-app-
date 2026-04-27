@@ -4,12 +4,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+
 <title>E-Bike Dash</title>
 
 <style>
 body{
 margin:0;
-background:radial-gradient(circle at center,#111,#000);
+background:radial-gradient(circle,#111,#000);
 color:#00ffcc;
 font-family:Arial;
 overflow:hidden;
@@ -25,9 +27,34 @@ align-items:center;
 
 .speed{
 font-size:120px;
+text-shadow:0 0 20px #00ffcc;
 }
 
-.small{color:#777}
+.unit{
+color:#777;
+margin-top:-10px;
+}
+
+.bottom{
+position:fixed;
+bottom:20px;
+width:100%;
+display:flex;
+justify-content:space-around;
+color:#fff;
+font-size:14px;
+}
+
+.small{font-size:11px;color:#777}
+
+button{
+padding:14px 20px;
+background:#00ffcc;
+border:0;
+border-radius:10px;
+font-weight:bold;
+margin-top:20px;
+}
 </style>
 </head>
 
@@ -35,61 +62,50 @@ font-size:120px;
 
 <div class="center">
 <div class="speed" id="speed">0</div>
-<div class="small">km/h</div>
+<div class="unit">km/h</div>
+<button onclick="start()">Start Ride</button>
+</div>
+
+<div class="bottom">
+<div>
+<div id="miles">0.00</div>
+<div class="small">Miles</div>
+</div>
+
+<div>
+<div id="avg">0</div>
+<div class="small">AVG</div>
+</div>
+
+<div>
+<div id="max">0</div>
+<div class="small">MAX</div>
+</div>
 </div>
 
 <script>
 
 let last=null;
 let lastTime=null;
-let kmTotal=0;
 let speeds=[];
+let kmTotal=0;
 
-let gpsStarted=false;
+function start(){
 
-/* AUTO START CHECK */
-window.onload=()=>{
+navigator.geolocation.watchPosition(p=>{
 
-let granted=localStorage.getItem("gps_ok");
-
-if(granted==="yes"){
-startGPS();
-}else{
-requestStart();
-}
-
-};
-
-function requestStart(){
-
-navigator.geolocation.getCurrentPosition(()=>{
-localStorage.setItem("gps_ok","yes");
-startGPS();
-},()=>{
-alert("Please allow location access to use speedometer");
-});
-
-}
-
-/* MAIN GPS LOOP */
-function startGPS(){
-
-if(gpsStarted)return;
-gpsStarted=true;
-
-navigator.geolocation.watchPosition(pos=>{
-
-let lat=pos.coords.latitude;
-let lon=pos.coords.longitude;
+let lat=p.coords.latitude;
+let lon=p.coords.longitude;
 let now=Date.now();
 
 let speed=0;
 
 if(last && lastTime){
 
-let d=dist(last,{lat,lon});
+let d=distance(last,{lat,lon});
 let t=(now-lastTime)/1000;
 
+/* filter bad GPS jumps */
 if(d<0.03 && t>0.5){
 speed=(d/t)*3600;
 kmTotal+=d;
@@ -97,24 +113,28 @@ kmTotal+=d;
 
 }
 
+/* update state */
 last={lat,lon};
 lastTime=now;
 
 /* smoothing */
 speeds.push(speed);
-if(speeds.length>5)speeds.shift();
+if(speeds.length>6)speeds.shift();
 
 let avg=speeds.reduce((a,b)=>a+b,0)/speeds.length;
+let max=Math.max(...speeds);
 
 /* display */
 document.getElementById("speed").innerText=avg.toFixed(1);
+document.getElementById("avg").innerText=avg.toFixed(1);
+document.getElementById("max").innerText=max.toFixed(1);
+document.getElementById("miles").innerText=(kmTotal*0.621371).toFixed(2);
 
-},{enableHighAccuracy:true,maximumAge:0});
+},{enableHighAccuracy:true,maximumAge:0,timeout:5000});
 
 }
 
-/* DISTANCE */
-function dist(a,b){
+function distance(a,b){
 const R=6371;
 let dLat=(b.lat-a.lat)*Math.PI/180;
 let dLon=(b.lon-a.lon)*Math.PI/180;
