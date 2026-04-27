@@ -15,17 +15,6 @@ font-family:Arial;
 overflow:hidden;
 }
 
-.top{
-position:fixed;
-top:0;
-width:100%;
-display:flex;
-justify-content:space-between;
-padding:10px 14px;
-font-size:12px;
-color:#888;
-}
-
 .center{
 height:100vh;
 display:flex;
@@ -36,71 +25,57 @@ align-items:center;
 
 .speed{
 font-size:120px;
-text-shadow:0 0 25px #00ffcc;
 }
 
-.unit{
-color:#777;
-margin-top:-10px;
-}
-
-.bottom{
-position:fixed;
-bottom:20px;
-width:100%;
-display:flex;
-justify-content:space-around;
-color:#fff;
-font-size:14px;
-}
-
-.card{
-text-align:center;
-}
-
-.small{
-font-size:11px;
-color:#777;
-}
+.small{color:#777}
 </style>
 </head>
 
 <body>
 
-<div class="top">
-<div>🚴 E-Bike Dashboard</div>
-<div id="gps">Waiting...</div>
-</div>
-
 <div class="center">
 <div class="speed" id="speed">0</div>
-<div class="unit">km/h</div>
-</div>
-
-<div class="bottom">
-<div class="card">
-<div id="miles">0.00</div>
-<div class="small">Miles</div>
-</div>
-
-<div class="card">
-<div id="avg">0</div>
-<div class="small">AVG km/h</div>
-</div>
-
-<div class="card">
-<div id="max">0</div>
-<div class="small">MAX km/h</div>
-</div>
+<div class="small">km/h</div>
 </div>
 
 <script>
 
 let last=null;
 let lastTime=null;
-
 let kmTotal=0;
 let speeds=[];
+
+let gpsStarted=false;
+
+/* AUTO START CHECK */
+window.onload=()=>{
+
+let granted=localStorage.getItem("gps_ok");
+
+if(granted==="yes"){
+startGPS();
+}else{
+requestStart();
+}
+
+};
+
+function requestStart(){
+
+navigator.geolocation.getCurrentPosition(()=>{
+localStorage.setItem("gps_ok","yes");
+startGPS();
+},()=>{
+alert("Please allow location access to use speedometer");
+});
+
+}
+
+/* MAIN GPS LOOP */
+function startGPS(){
+
+if(gpsStarted)return;
+gpsStarted=true;
 
 navigator.geolocation.watchPosition(pos=>{
 
@@ -112,7 +87,7 @@ let speed=0;
 
 if(last && lastTime){
 
-let d=distance(last,{lat,lon});
+let d=dist(last,{lat,lon});
 let t=(now-lastTime)/1000;
 
 if(d<0.03 && t>0.5){
@@ -129,23 +104,17 @@ lastTime=now;
 speeds.push(speed);
 if(speeds.length>5)speeds.shift();
 
-let avgSpeed=speeds.reduce((a,b)=>a+b,0)/speeds.length;
-let maxSpeed=Math.max(...speeds);
-
-let miles=kmTotal*0.621371;
+let avg=speeds.reduce((a,b)=>a+b,0)/speeds.length;
 
 /* display */
-document.getElementById("speed").innerText=avgSpeed.toFixed(1);
-document.getElementById("miles").innerText=miles.toFixed(2);
-document.getElementById("avg").innerText=avgSpeed.toFixed(1);
-document.getElementById("max").innerText=maxSpeed.toFixed(1);
+document.getElementById("speed").innerText=avg.toFixed(1);
 
-document.getElementById("gps").innerText=
-lat.toFixed(5)+" , "+lon.toFixed(5);
+},{enableHighAccuracy:true,maximumAge:0});
 
-},{enableHighAccuracy:true,maximumAge:0,timeout:5000});
+}
 
-function distance(a,b){
+/* DISTANCE */
+function dist(a,b){
 const R=6371;
 let dLat=(b.lat-a.lat)*Math.PI/180;
 let dLon=(b.lon-a.lon)*Math.PI/180;
