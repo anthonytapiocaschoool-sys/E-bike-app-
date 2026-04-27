@@ -4,12 +4,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<title>E-Bike Speedometer</title>
+<title>E-Bike Dash</title>
 
 <style>
 body{
 margin:0;
-background:#000;
+background:radial-gradient(circle at center,#111,#000);
 color:#00ffcc;
 font-family:Arial;
 overflow:hidden;
@@ -35,14 +35,13 @@ align-items:center;
 }
 
 .speed{
-font-size:110px;
-text-shadow:0 0 20px #00ffcc;
+font-size:120px;
+text-shadow:0 0 25px #00ffcc;
 }
 
 .unit{
 color:#777;
 margin-top:-10px;
-font-size:14px;
 }
 
 .bottom{
@@ -55,6 +54,10 @@ color:#fff;
 font-size:14px;
 }
 
+.card{
+text-align:center;
+}
+
 .small{
 font-size:11px;
 color:#777;
@@ -65,8 +68,8 @@ color:#777;
 <body>
 
 <div class="top">
-<div>🚴 E-Bike</div>
-<div id="gps">Waiting GPS...</div>
+<div>🚴 E-Bike Dashboard</div>
+<div id="gps">Waiting...</div>
 </div>
 
 <div class="center">
@@ -75,27 +78,28 @@ color:#777;
 </div>
 
 <div class="bottom">
-<div>
-<div id="dist">0.00</div>
-<div class="small">KM</div>
+<div class="card">
+<div id="miles">0.00</div>
+<div class="small">Miles</div>
 </div>
 
-<div>
+<div class="card">
 <div id="avg">0</div>
-<div class="small">AVG</div>
+<div class="small">AVG km/h</div>
 </div>
 
-<div>
+<div class="card">
 <div id="max">0</div>
-<div class="small">MAX</div>
+<div class="small">MAX km/h</div>
 </div>
 </div>
 
 <script>
 
-let lastPos=null;
+let last=null;
 let lastTime=null;
-let distance=0;
+
+let kmTotal=0;
 let speeds=[];
 
 navigator.geolocation.watchPosition(pos=>{
@@ -106,41 +110,42 @@ let now=Date.now();
 
 let speed=0;
 
-if(lastPos && lastTime){
-let d=calc(lastPos,{lat,lon});
+if(last && lastTime){
+
+let d=distance(last,{lat,lon});
 let t=(now-lastTime)/1000;
 
-if(t>0){
+if(d<0.03 && t>0.5){
 speed=(d/t)*3600;
-distance+=d;
-}
+kmTotal+=d;
 }
 
-lastPos={lat,lon};
+}
+
+last={lat,lon};
 lastTime=now;
 
-/* SPEED */
-document.getElementById("speed").innerText=speed.toFixed(1);
-
-/* GPS TEXT */
-document.getElementById("gps").innerText=
-lat.toFixed(5)+", "+lon.toFixed(5);
-
-/* STATS */
+/* smoothing */
 speeds.push(speed);
+if(speeds.length>5)speeds.shift();
 
-let avg=speeds.reduce((a,b)=>a+b,0)/speeds.length;
-let max=Math.max(...speeds);
+let avgSpeed=speeds.reduce((a,b)=>a+b,0)/speeds.length;
+let maxSpeed=Math.max(...speeds);
 
-document.getElementById("dist").innerText=distance.toFixed(2);
-document.getElementById("avg").innerText=avg.toFixed(1);
-document.getElementById("max").innerText=max.toFixed(1);
+let miles=kmTotal*0.621371;
 
-},err=>{
-document.getElementById("gps").innerText="GPS blocked";
-},{enableHighAccuracy:true});
+/* display */
+document.getElementById("speed").innerText=avgSpeed.toFixed(1);
+document.getElementById("miles").innerText=miles.toFixed(2);
+document.getElementById("avg").innerText=avgSpeed.toFixed(1);
+document.getElementById("max").innerText=maxSpeed.toFixed(1);
 
-function calc(a,b){
+document.getElementById("gps").innerText=
+lat.toFixed(5)+" , "+lon.toFixed(5);
+
+},{enableHighAccuracy:true,maximumAge:0,timeout:5000});
+
+function distance(a,b){
 const R=6371;
 let dLat=(b.lat-a.lat)*Math.PI/180;
 let dLon=(b.lon-a.lon)*Math.PI/180;
