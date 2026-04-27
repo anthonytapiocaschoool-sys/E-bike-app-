@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>E-Bike Speedometer</title>
+
+<style>
+body{
+margin:0;
+background:#000;
+color:#00ffcc;
+font-family:Arial;
+overflow:hidden;
+}
+
+.top{
+position:fixed;
+top:0;
+width:100%;
+display:flex;
+justify-content:space-between;
+padding:10px 14px;
+font-size:12px;
+color:#888;
+}
+
+.center{
+height:100vh;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+}
+
+.speed{
+font-size:110px;
+text-shadow:0 0 20px #00ffcc;
+}
+
+.unit{
+color:#777;
+margin-top:-10px;
+font-size:14px;
+}
+
+.bottom{
+position:fixed;
+bottom:20px;
+width:100%;
+display:flex;
+justify-content:space-around;
+color:#fff;
+font-size:14px;
+}
+
+.small{
+font-size:11px;
+color:#777;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+<div>🚴 E-Bike</div>
+<div id="gps">Waiting GPS...</div>
+</div>
+
+<div class="center">
+<div class="speed" id="speed">0</div>
+<div class="unit">km/h</div>
+</div>
+
+<div class="bottom">
+<div>
+<div id="dist">0.00</div>
+<div class="small">KM</div>
+</div>
+
+<div>
+<div id="avg">0</div>
+<div class="small">AVG</div>
+</div>
+
+<div>
+<div id="max">0</div>
+<div class="small">MAX</div>
+</div>
+</div>
+
+<script>
+
+let lastPos=null;
+let lastTime=null;
+let distance=0;
+let speeds=[];
+
+navigator.geolocation.watchPosition(pos=>{
+
+let lat=pos.coords.latitude;
+let lon=pos.coords.longitude;
+let now=Date.now();
+
+let speed=0;
+
+if(lastPos && lastTime){
+let d=calc(lastPos,{lat,lon});
+let t=(now-lastTime)/1000;
+
+if(t>0){
+speed=(d/t)*3600;
+distance+=d;
+}
+}
+
+lastPos={lat,lon};
+lastTime=now;
+
+/* SPEED */
+document.getElementById("speed").innerText=speed.toFixed(1);
+
+/* GPS TEXT */
+document.getElementById("gps").innerText=
+lat.toFixed(5)+", "+lon.toFixed(5);
+
+/* STATS */
+speeds.push(speed);
+
+let avg=speeds.reduce((a,b)=>a+b,0)/speeds.length;
+let max=Math.max(...speeds);
+
+document.getElementById("dist").innerText=distance.toFixed(2);
+document.getElementById("avg").innerText=avg.toFixed(1);
+document.getElementById("max").innerText=max.toFixed(1);
+
+},err=>{
+document.getElementById("gps").innerText="GPS blocked";
+},{enableHighAccuracy:true});
+
+function calc(a,b){
+const R=6371;
+let dLat=(b.lat-a.lat)*Math.PI/180;
+let dLon=(b.lon-a.lon)*Math.PI/180;
+
+let x=
+Math.sin(dLat/2)**2+
+Math.cos(a.lat*Math.PI/180)*
+Math.cos(b.lat*Math.PI/180)*
+Math.sin(dLon/2)**2;
+
+return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+</script>
+
+</body>
+</html>
